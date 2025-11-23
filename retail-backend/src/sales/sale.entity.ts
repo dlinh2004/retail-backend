@@ -20,4 +20,6 @@ export class Sale {
 
   @Column('float')
 total: number;
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+soldAt: Date;
 }

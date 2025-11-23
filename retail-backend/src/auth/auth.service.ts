@@ -7,8 +7,8 @@ import * as bcrypt from 'bcryptjs';
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
+    private readonly usersService: UsersService, // bỏ "type" và thêm readonly
+    private readonly jwtService: JwtService,     // bỏ "type"
   ) {}
 
   async validateUser(username: string, password: string) {
@@ -30,6 +30,15 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
     };
+  }
+
+  async register(username: string, password: string, role?: string) {
+    return this.usersService.create(username, password, role as any);
   }
 }

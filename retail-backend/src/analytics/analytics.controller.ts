@@ -1,13 +1,13 @@
 // src/analytics/analytics.controller.ts
 import { Controller, Get } from '@nestjs/common';
-import { AnalyticsService } from './analytics.service';
+import { ForecastService } from './forecast.service';
 
 @Controller('analytics')
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(private readonly forecastService: ForecastService) {}
 
   @Get('summary')
   async getSummary() {
-    return this.analyticsService.getSalesSummary();
+    return this.forecastService.forecastNext7Days();
   }
 }

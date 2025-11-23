@@ -1,4 +1,3 @@
-// src/analytics/analytics.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module';
@@ -12,7 +11,6 @@ import { AnalyticsController } from './analytics.controller';
 import { SqsConsumer } from './sqs.consumer';
 import { ForecastService } from './forecast.service';
 import { ForecastController } from './forecast.controller';
-
 import { AnalyticsResult } from './analytics-result.entity';
 
 @Module({
@@ -24,6 +22,6 @@ import { AnalyticsResult } from './analytics-result.entity';
   ],
   providers: [AnalyticsService, SqsConsumer, ForecastService],
   controllers: [AnalyticsController, ForecastController],
-  exports: [AnalyticsService],
+  exports: [AnalyticsService, ForecastService], // export ForecastService để controller nhận được
 })
 export class AnalyticsModule {}
