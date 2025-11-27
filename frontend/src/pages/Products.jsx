@@ -6,17 +6,25 @@ import api from "../services/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { Label } from "@/components/ui/label" 
 import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/sheet"
 
 const Products = () => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentProduct, setCurrentProduct] = useState(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { isAdmin } = useAuth()
   const { toast } = useToast()
 
@@ -42,27 +50,41 @@ const Products = () => {
   }, [])
 
   const handleOpenDialog = (product = null) => {
-    console.log('Products.handleOpenDialog called, product:', product)
     if (product) {
       setCurrentProduct(product)
       setFormData({
-        name: product.name,
-        price: product.price,
-        stock: product.stock,
+        name: product.name || "",
+        price: String(product.price ?? ""),
+        stock: String(product.stock ?? ""),
       })
     } else {
       setCurrentProduct(null)
-      setFormData({
-        name: "",
-        price: "",
-        stock: "",
-      })
+      setFormData({ name: "", price: "", stock: "" })
     }
     setIsDialogOpen(true)
   }
 
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false)
+    setCurrentProduct(null)
+    setFormData({ name: "", price: "", stock: "" })
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // Basic client-side validation
+    if (!formData.name.trim()) {
+      toast({ title: "Lỗi", description: "Tên sản phẩm không được để trống", variant: "destructive" })
+      return
+    }
+    if (Number.isNaN(Number(formData.price)) || Number(formData.price) <= 0) {
+      toast({ title: "Lỗi", description: "Giá phải là số lớn hơn 0", variant: "destructive" })
+      return
+    }
+    if (Number.isNaN(Number(formData.stock)) || Number(formData.stock) < 0) {
+      toast({ title: "Lỗi", description: "Tồn kho phải là số không âm", variant: "destructive" })
+      return
+    }
     try {
       const tokenPreview = localStorage.getItem('token')
       const payloadPreview = {
@@ -98,7 +120,8 @@ const Products = () => {
         )
         toast({ title: "Thành công", description: "Đã tạo sản phẩm mới" })
       }
-      setIsDialogOpen(false)
+      // close and reset dialog on success
+      handleCloseDialog()
       fetchProducts()
     } catch (error) {
       console.error('Products.create error:', error)
@@ -227,53 +250,61 @@ const Products = () => {
         </Table>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <div data-testid="dialog-state" className="mb-2 text-sm text-muted-foreground">Dialog state: {isDialogOpen ? 'OPEN' : 'CLOSED'}</div>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{currentProduct ? "Sửa sản phẩm" : "Thêm sản phẩm mới"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Tên sản phẩm</Label>
+      <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <SheetContent side="right" className="sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{currentProduct ? "Sửa sản phẩm" : "Thêm sản phẩm"}</SheetTitle>
+            <SheetDescription>
+              {currentProduct ? "Cập nhật thông tin sản phẩm." : "Nhập thông tin sản phẩm mới."}
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <div>
+              <Label className="mb-2 block">Tên sản phẩm</Label>
               <Input
-                id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
+                onChange={(e) => setFormData((s) => ({ ...s, name: e.target.value }))}
+                placeholder="Tên sản phẩm"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">Giá</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="stock">Số lượng tồn</Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  required
-                />
-              </div>
+
+            <div>
+              <Label className="mb-2 block">Giá (VND)</Label>
+              <Input
+                inputMode="numeric"
+                type="number"
+                step="1"
+                value={formData.price}
+                onChange={(e) => setFormData((s) => ({ ...s, price: e.target.value }))}
+                placeholder="100000"
+              />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+
+            <div>
+              <Label className="mb-2 block">Tồn kho</Label>
+              <Input
+                inputMode="numeric"
+                type="number"
+                step="1"
+                value={formData.stock}
+                onChange={(e) => setFormData((s) => ({ ...s, stock: e.target.value }))}
+                placeholder="10"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => handleCloseDialog()}>
                 Hủy
               </Button>
-              <Button type="submit">Lưu</Button>
-            </DialogFooter>
+              <Button type="submit">{currentProduct ? "Cập nhật" : "Tạo"}</Button>
+            </div>
           </form>
-        </DialogContent>
-      </Dialog>
+
+          <SheetFooter />
+          <SheetClose />
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

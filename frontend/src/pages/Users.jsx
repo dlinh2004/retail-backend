@@ -2,21 +2,31 @@
 
 import { useEffect, useState } from "react"
 import api from "../services/api"
+import { useAuth } from "../context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, User } from "lucide-react"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/sheet"
 
 const Users = () => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { toast } = useToast()
+  const { isAdmin } = useAuth()
 
   const [formData, setFormData] = useState({
     username: "",
@@ -39,22 +49,51 @@ const Users = () => {
     fetchUsers()
   }, [])
 
+  const handleOpenDialog = () => {
+    setFormData({ username: "", password: "", role: "staff" })
+    setIsDialogOpen(true)
+  }
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false)
+    setFormData({ username: "", password: "", role: "staff" })
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Basic client-side validation
+    if (!formData.username || !formData.username.trim()) {
+      toast({ title: "Lỗi", description: "Username không được để trống", variant: "destructive" })
+      return
+    }
+
+    if (!formData.password || formData.password.length < 6) {
+      toast({ title: "Lỗi", description: "Password phải có tối thiểu 6 ký tự", variant: "destructive" })
+      return
+    }
+
     try {
-      // register via auth endpoint (no auth required), attach token if present for audit
       const token = localStorage.getItem('token')
-      await api.post("/auth/register", formData, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
-      toast({ title: "Thành công", description: "Đã tạo người dùng mới" })
-      setIsDialogOpen(false)
+      await api.post(
+        "/users",
+        {
+          username: formData.username,
+          password: formData.password,
+          role: formData.role,
+        },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+      )
+
+      toast({ title: "Thành công", description: "Đã tạo nhân viên mới" })
+      handleCloseDialog()
+      // refresh list
       fetchUsers()
-      setFormData({ username: "", password: "", role: "staff" })
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: error.response?.data?.message || "Có lỗi xảy ra",
-        variant: "destructive",
-      })
+      console.error("Users.create error:", error)
+      const msg = error.response?.data?.message || error.message || "Có lỗi xảy ra"
+      const status = error.response?.status
+      toast({ title: "Lỗi", description: status ? `${msg} (status ${status})` : msg, variant: "destructive" })
     }
   }
 
@@ -62,9 +101,11 @@ const Users = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Quản lý người dùng</h1>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        {isAdmin ? (
+          <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" /> Thêm nhân viên
-        </Button>
+          </Button>
+        ) : null}
       </div>
 
       <div className="rounded-md border bg-white dark:bg-gray-800">
@@ -107,36 +148,39 @@ const Users = () => {
         </Table>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm người dùng mới</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+
+      <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <SheetContent side="right" className="sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Thêm nhân viên</SheetTitle>
+            <SheetDescription>Nhập thông tin đăng nhập cho nhân viên mới.</SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <div>
+              <Label className="mb-2 block">Username</Label>
               <Input
-                id="username"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                required
+                onChange={(e) => setFormData((s) => ({ ...s, username: e.target.value }))}
+                placeholder="username"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+
+            <div>
+              <Label className="mb-2 block">Password</Label>
               <Input
-                id="password"
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
+                onChange={(e) => setFormData((s) => ({ ...s, password: e.target.value }))}
+                placeholder="******"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Vai trò</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+
+            <div>
+              <Label className="mb-2 block">Vai trò</Label>
+              <Select value={formData.role} onValueChange={(val) => setFormData((s) => ({ ...s, role: val }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn vai trò" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="staff">Staff</SelectItem>
@@ -144,15 +188,20 @@ const Users = () => {
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => handleCloseDialog()}>
                 Hủy
               </Button>
-              <Button type="submit">Tạo người dùng</Button>
-            </DialogFooter>
+              <Button type="submit">Tạo</Button>
+            </div>
           </form>
-        </DialogContent>
-      </Dialog>
+
+          <SheetFooter />
+          <SheetClose />
+        </SheetContent>
+      </Sheet>
+
     </div>
   )
 }
