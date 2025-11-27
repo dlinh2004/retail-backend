@@ -42,7 +42,9 @@ const Users = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await api.post("/auth/register", formData)
+      // register via auth endpoint (no auth required), attach token if present for audit
+      const token = localStorage.getItem('token')
+      await api.post("/auth/register", formData, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
       toast({ title: "Thành công", description: "Đã tạo người dùng mới" })
       setIsDialogOpen(false)
       fetchUsers()

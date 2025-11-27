@@ -9,13 +9,28 @@ import api from "../services/api"
 const Dashboard = () => {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [chartData, setChartData] = useState([])
+  const [topProducts, setTopProducts] = useState([])
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch dashboard data
-        const response = await api.get("/analytics/summary")
-        setSummary(response.data)
+        // Fetch dashboard data (summary, forecast, top-products)
+        const [summaryRes, forecastRes, topRes] = await Promise.all([
+          api.get("/analytics/summary"),
+          api.get("/analytics/forecast"),
+          api.get("/analytics/top-products"),
+        ])
+
+        setSummary(summaryRes.data)
+
+        // Forecast: map to chart structure
+        const forecasts = forecastRes.data?.forecasts || []
+        const mapped = forecasts.map((f) => ({ name: `D${f.day}`, revenue: f.predicted_revenue }))
+        setChartData(mapped)
+
+        // Top products: expect [{ name, sales }]
+        setTopProducts(topRes.data || [])
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
       } finally {
@@ -26,24 +41,6 @@ const Dashboard = () => {
     fetchData()
   }, [])
 
-  // Mock data for charts since the real endpoint might return simple numbers
-  const mockChartData = [
-    { name: "T2", revenue: 4000 },
-    { name: "T3", revenue: 3000 },
-    { name: "T4", revenue: 2000 },
-    { name: "T5", revenue: 2780 },
-    { name: "T6", revenue: 1890 },
-    { name: "T7", revenue: 2390 },
-    { name: "CN", revenue: 3490 },
-  ]
-
-  const mockTopProducts = [
-    { name: "Áo thun", sales: 120 },
-    { name: "Quần Jean", sales: 98 },
-    { name: "Giày Sneaker", sales: 86 },
-    { name: "Áo khoác", sales: 54 },
-    { name: "Mũ", sales: 45 },
-  ]
 
   if (loading) {
     return <div className="flex items-center justify-center h-full">Loading...</div>
@@ -111,7 +108,7 @@ const Dashboard = () => {
           <CardContent className="pl-2">
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mockChartData}>
+                <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis
@@ -136,7 +133,7 @@ const Dashboard = () => {
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockTopProducts} layout="vertical">
+                <BarChart data={topProducts} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" hide />
                   <YAxis

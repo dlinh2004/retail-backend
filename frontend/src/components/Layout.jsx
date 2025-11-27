@@ -44,7 +44,7 @@ const Layout = () => {
       >
         <div className="flex items-center justify-between h-16 px-6 border-b dark:border-gray-700">
           <span className="text-xl font-bold text-primary">RetailAdmin</span>
-          <button className="md:hidden" onClick={() => setSidebarOpen(false)}>
+          <button className="md:hidden" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)}>
             <X size={24} />
           </button>
         </div>
@@ -88,7 +88,7 @@ const Layout = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between h-16 px-6 bg-white dark:bg-gray-800 shadow-sm md:hidden">
-          <button onClick={() => setSidebarOpen(true)}>
+          <button aria-label="Open sidebar" onClick={() => setSidebarOpen(true)}>
             <Menu size={24} />
           </button>
           <span className="font-semibold">Dashboard</span>

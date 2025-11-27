@@ -42,6 +42,7 @@ const Products = () => {
   }, [])
 
   const handleOpenDialog = (product = null) => {
+    console.log('Products.handleOpenDialog called, product:', product)
     if (product) {
       setCurrentProduct(product)
       setFormData({
@@ -63,29 +64,49 @@ const Products = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      const tokenPreview = localStorage.getItem('token')
+      const payloadPreview = {
+        ...formData,
+        price: Number(formData.price),
+        stock: Number(formData.stock),
+      }
+      console.debug('Products.handleSubmit token:', !!tokenPreview, 'payload:', payloadPreview)
       if (currentProduct) {
         // Edit existing product
-        await api.put(`/products/${currentProduct.id}`, {
-          ...formData,
-          price: Number(formData.price),
-          stock: Number(formData.stock),
-        })
+        const token = localStorage.getItem('token')
+        await api.put(
+          `/products/${currentProduct.id}`,
+          {
+            ...formData,
+            price: Number(formData.price),
+            stock: Number(formData.stock),
+          },
+          token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+        )
         toast({ title: "Thành công", description: "Đã cập nhật sản phẩm" })
       } else {
         // Create new product
-        await api.post("/products", {
-          ...formData,
-          price: Number(formData.price),
-          stock: Number(formData.stock),
-        })
+        const token = localStorage.getItem('token')
+        await api.post(
+          "/products",
+          {
+            ...formData,
+            price: Number(formData.price),
+            stock: Number(formData.stock),
+          },
+          token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+        )
         toast({ title: "Thành công", description: "Đã tạo sản phẩm mới" })
       }
       setIsDialogOpen(false)
       fetchProducts()
     } catch (error) {
+      console.error('Products.create error:', error)
+      const msg = error.response?.data?.message || error.message || 'Có lỗi xảy ra'
+      const status = error.response?.status
       toast({
         title: "Lỗi",
-        description: error.response?.data?.message || "Có lỗi xảy ra",
+        description: status ? `${msg} (status ${status})` : msg,
         variant: "destructive",
       })
     }
@@ -94,7 +115,8 @@ const Products = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Bạn có chắc chắn muốn xoá sản phẩm này?")) {
       try {
-        await api.delete(`/products/${id}`)
+        const token = localStorage.getItem('token')
+        await api.delete(`/products/${id}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
         toast({ title: "Thành công", description: "Đã xoá sản phẩm" })
         fetchProducts()
       } catch (error) {
@@ -179,13 +201,19 @@ const Products = () => {
                   </TableCell>
                   {isAdmin && (
                     <TableCell className="text-right space-x-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Edit product ${product.name}`}
+                        onClick={() => handleOpenDialog(product)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="text-red-500 hover:text-red-600"
+                        aria-label={`Delete product ${product.name}`}
                         onClick={() => handleDelete(product.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -200,6 +228,7 @@ const Products = () => {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <div data-testid="dialog-state" className="mb-2 text-sm text-muted-foreground">Dialog state: {isDialogOpen ? 'OPEN' : 'CLOSED'}</div>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{currentProduct ? "Sửa sản phẩm" : "Thêm sản phẩm mới"}</DialogTitle>

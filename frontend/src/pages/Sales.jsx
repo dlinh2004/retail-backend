@@ -44,11 +44,16 @@ const Sales = () => {
   const handleCreateOrder = async (e) => {
     e.preventDefault()
     try {
-      await api.post("/sales", {
-        productId: Number(newOrder.productId),
-        staffId: user.id,
-        quantity: Number(newOrder.quantity),
-      })
+      const token = localStorage.getItem('token')
+      await api.post(
+        "/sales",
+        {
+          productId: Number(newOrder.productId),
+          staffId: user.id,
+          quantity: Number(newOrder.quantity),
+        },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+      )
 
       toast({ title: "Thành công", description: "Đã tạo đơn hàng mới" })
       fetchData() // Reload data
@@ -79,7 +84,7 @@ const Sales = () => {
                   value={newOrder.productId}
                   onValueChange={(value) => setNewOrder({ ...newOrder, productId: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="product">
                     <SelectValue placeholder="Chọn sản phẩm" />
                   </SelectTrigger>
                   <SelectContent>
@@ -149,10 +154,10 @@ const Sales = () => {
                         <TableCell>{sale.quantity}</TableCell>
                         <TableCell>
                           {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-                            sale.total_price,
+                            sale.total || 0,
                           )}
                         </TableCell>
-                        <TableCell>{sale.sold_at ? format(new Date(sale.sold_at), "dd/MM/yyyy HH:mm") : "-"}</TableCell>
+                        <TableCell>{sale.soldAt ? format(new Date(sale.soldAt), "dd/MM/yyyy HH:mm") : "-"}</TableCell>
                       </TableRow>
                     ))
                   )}
