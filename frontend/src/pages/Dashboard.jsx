@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts"
 import { DollarSign, ShoppingBag, Package, TrendingUp } from "lucide-react"
 import api from "../services/api"
@@ -11,6 +12,33 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [chartData, setChartData] = useState([])
   const [topProducts, setTopProducts] = useState([])
+  const [view, setView] = useState('week') // 'week' | 'month' | 'year'
+
+  // helper: weekday names and conversion
+  const weekdays = [
+    'Chủ nhật', // 0
+    'Thứ 2',
+    'Thứ 3',
+    'Thứ 4',
+    'Thứ 5',
+    'Thứ 6',
+    'Thứ 7',
+  ]
+
+  const toWeekdayLabel = (d) => {
+    if (typeof d === 'number') {
+      if (d >= 0 && d <= 6) return weekdays[d]
+      if (d >= 1 && d <= 7) return weekdays[d % 7]
+    }
+    const parsed = new Date(d)
+    if (!Number.isNaN(parsed.getTime())) return weekdays[parsed.getDay()]
+    return String(d)
+  }
+
+  const currencyFormatter = (value) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+
+  const currentYear = new Date().getFullYear()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,35 +52,8 @@ const Dashboard = () => {
 
         setSummary(summaryRes.data)
 
-        // Forecast: map to chart structure and convert day -> weekday
+        // We still set week's chart data initially here (chart view default is week)
         const forecasts = forecastRes.data?.forecasts || []
-
-        const weekdays = [
-          'Chủ nhật', // 0
-          'Thứ 2',
-          'Thứ 3',
-          'Thứ 4',
-          'Thứ 5',
-          'Thứ 6',
-          'Thứ 7',
-        ]
-
-        const toWeekdayLabel = (d) => {
-          // If d is a number and looks like 0-6 -> use as Date.getDay
-          if (typeof d === 'number') {
-            if (d >= 0 && d <= 6) return weekdays[d]
-            // If day uses 1..7 where 1 = Monday, map 1->Thứ 2 .. 7->Chủ nhật
-            if (d >= 1 && d <= 7) return weekdays[d % 7]
-          }
-
-          // If it's a date string or ISO date, try to parse
-          const parsed = new Date(d)
-          if (!Number.isNaN(parsed.getTime())) return weekdays[parsed.getDay()]
-
-          // fallback to original value
-          return String(d)
-        }
-
         const mapped = forecasts.map((f) => ({ name: toWeekdayLabel(f.day), revenue: f.predicted_revenue }))
         setChartData(mapped)
 
@@ -67,6 +68,45 @@ const Dashboard = () => {
 
     fetchData()
   }, [])
+
+  // Fetch chart data when view changes
+  useEffect(() => {
+    const fetchChart = async () => {
+      try {
+        if (view === 'week') {
+          const forecastRes = await api.get('/analytics/forecast')
+          const forecasts = forecastRes.data?.forecasts || []
+          setChartData(forecasts.map((f) => ({ name: toWeekdayLabel(f.day), revenue: f.predicted_revenue })))
+        } else if (view === 'month') {
+          const res = await api.get(`/analytics/revenue/month?year=${currentYear}`)
+          const rows = res.data || []
+          // Normalize to 12 months — fill missing months with revenue 0
+          const byMonth = new Map(rows.map((r) => [Number(r.month), Number(r.revenue)]))
+          const monthsAll = Array.from({ length: 12 }, (_, i) => ({
+            month: i + 1,
+            revenue: byMonth.get(i + 1) ?? 0,
+          }))
+
+          setChartData(monthsAll.map((r) => ({ name: `Tháng ${r.month}`, revenue: r.revenue })))
+        } else if (view === 'year') {
+          const yearsToFetch = 5
+          const res = await api.get(`/analytics/revenue/year?years=${yearsToFetch}`)
+          const rows = res.data || []
+          // Normalize to last `yearsToFetch` years (chronological)
+          const years = rows.map(r => Number(r.year))
+          const startYear = years.length ? Math.min(...years) : currentYear - (yearsToFetch - 1)
+          const expectedYears = Array.from({ length: yearsToFetch }, (_, i) => startYear + i)
+          const byYear = new Map(rows.map((r) => [Number(r.year), Number(r.revenue)]))
+
+          setChartData(expectedYears.map((y) => ({ name: String(y), revenue: byYear.get(y) ?? 0 })))
+        }
+      } catch (error) {
+        console.error('Error fetching chart data for view', view, error)
+      }
+    }
+
+    fetchChart()
+  }, [view])
 
 
   if (loading) {
@@ -129,25 +169,45 @@ const Dashboard = () => {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Doanh thu tuần qua</CardTitle>
-          </CardHeader>
+          <CardHeader className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle>Doanh thu</CardTitle>
+                <div className="text-xs text-muted-foreground">{view === 'week' ? 'Tuần' : view === 'month' ? 'Tháng' : 'Năm'}</div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant={view === 'week' ? 'default' : 'ghost'} size="sm" onClick={() => setView('week')}>Tuần</Button>
+                <Button variant={view === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setView('month')}>Tháng</Button>
+                <Button variant={view === 'year' ? 'default' : 'ghost'} size="sm" onClick={() => setView('year')}>Năm</Button>
+              </div>
+            </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis
-                    stroke="#888888"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}`}
-                  />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                </LineChart>
+                {view === 'week' ? (
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} interval={0} tick={{ angle: -20, textAnchor: 'end' }} />
+                    <YAxis
+                      stroke="#888888"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => currencyFormatter(value)}
+                    />
+                    <Tooltip formatter={(value) => currencyFormatter(value)} />
+                    <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  </LineChart>
+                ) : (
+                  // month / year -> column (vertical bar) chart
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} interval={0} tick={{ angle: -20, textAnchor: 'end' }} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => currencyFormatter(v)} />
+                    <Tooltip formatter={(value) => currencyFormatter(value)} />
+                    <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </div>
           </CardContent>
