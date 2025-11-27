@@ -33,6 +33,28 @@ export class UsersService {
     return this.usersRepository.findOneBy({ id });
   }
 
+  // Cập nhật thông tin user
+  async update(id: number, data: { username?: string; password?: string; role?: UserRole }) {
+    const user = await this.usersRepository.findOneBy({ id });
+    if (!user) return null;
+
+    if (data.username !== undefined) user.username = data.username;
+    if (data.role !== undefined) user.role = data.role;
+
+    if (data.password !== undefined && data.password !== null && data.password !== '') {
+      const hashed = await bcrypt.hash(data.password, 10);
+      user.password = hashed;
+    }
+
+    return this.usersRepository.save(user);
+  }
+
+  // Xoá user
+  async delete(id: number) {
+    const res = await this.usersRepository.delete({ id });
+    return res.affected && res.affected > 0;
+  }
+
   // Lấy user theo username (cần cho AuthService)
   findByUsername(username: string) {
   return this.usersRepository.findOne({
