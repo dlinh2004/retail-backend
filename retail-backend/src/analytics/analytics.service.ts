@@ -70,6 +70,42 @@ export class AnalyticsService {
     return { forecasts };
   }
 
+  // Doanh thu theo tháng (return 12 months Jan..Dec for a specific year)
+  async getRevenueByMonth(year?: number) {
+    const y = year ?? new Date().getFullYear();
+    const rows = await this.salesRepo.query(
+      `
+      SELECT m.month::int AS month, COALESCE(SUM(s.total_price), 0) AS revenue
+      FROM generate_series(1, 12) AS m(month)
+      LEFT JOIN sales s ON EXTRACT(MONTH FROM s.sold_at)::int = m.month AND EXTRACT(YEAR FROM s.sold_at)::int = $1
+      GROUP BY m.month
+      ORDER BY m.month
+      `,
+      [y],
+    )
+
+    return rows.map((r) => ({ month: Number(r.month), revenue: Number(r.revenue) }))
+  }
+
+  // Doanh thu theo năm (last `years` years, including years with zero revenue)
+  async getRevenueByYear(years = 5) {
+    const currentYear = new Date().getFullYear()
+    const startYear = currentYear - (years - 1)
+
+    const rows = await this.salesRepo.query(
+      `
+      SELECT y.year::int AS year, COALESCE(SUM(s.total_price), 0) AS revenue
+      FROM generate_series($1::int, $2::int) AS y(year)
+      LEFT JOIN sales s ON EXTRACT(YEAR FROM s.sold_at)::int = y.year
+      GROUP BY y.year
+      ORDER BY y.year
+      `,
+      [startYear, currentYear],
+    )
+
+    return rows.map((r) => ({ year: Number(r.year), revenue: Number(r.revenue) }))
+  }
+
   // New: combined summary used by frontend dashboard
   async getSummary() {
     const sales = await this.salesRepo.find();

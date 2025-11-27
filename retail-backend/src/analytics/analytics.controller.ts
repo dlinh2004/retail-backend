@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
@@ -30,5 +30,17 @@ export class AnalyticsController {
   @Get('summary')
   getSummary() {
     return this.analyticsService.getSummary();
+  }
+
+  @Get('revenue/month')
+  getRevenueByMonth(@Query('year') year?: string) {
+    const y = year ? parseInt(year, 10) : undefined
+    return this.analyticsService.getRevenueByMonth(y)
+  }
+
+  @Get('revenue/year')
+  getRevenueByYear(@Query('years') years?: string) {
+    const n = years ? parseInt(years, 10) : undefined
+    return this.analyticsService.getRevenueByYear(n)
   }
 }

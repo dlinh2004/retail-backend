@@ -18,8 +18,8 @@ export class Sale {
   @Column('int')
   quantity: number;
 
-  @Column('float')
-total: number;
+  @Column('float', { name: 'total_price' })
+  total: number;
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
 soldAt: Date;
 }
