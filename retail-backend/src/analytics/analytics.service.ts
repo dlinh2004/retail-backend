@@ -72,19 +72,23 @@ export class AnalyticsService {
 
   // Doanh thu theo tháng (return 12 months Jan..Dec for a specific year)
   async getRevenueByMonth(year?: number) {
-    const y = year ?? new Date().getFullYear();
-    const rows = await this.salesRepo.query(
-      `
-      SELECT m.month::int AS month, COALESCE(SUM(s.total_price), 0) AS revenue
-      FROM generate_series(1, 12) AS m(month)
-      LEFT JOIN sales s ON EXTRACT(MONTH FROM s.sold_at)::int = m.month AND EXTRACT(YEAR FROM s.sold_at)::int = $1
-      GROUP BY m.month
-      ORDER BY m.month
-      `,
-      [y],
-    )
+    const y = year ?? new Date().getFullYear()
 
-    return rows.map((r) => ({ month: Number(r.month), revenue: Number(r.revenue) }))
+    // Build start/end for the year in UTC to avoid timezone shifting
+    const start = new Date(Date.UTC(y, 0, 1, 0, 0, 0, 0))
+    const end = new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999))
+
+    const sales = await this.salesRepo.find({ where: { soldAt: Between(start, end) } })
+
+    // aggregate by month (1..12) using UTC month to be consistent
+    const months = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, revenue: 0 }))
+    sales.forEach((s) => {
+      const dt = new Date(s.soldAt)
+      const m = dt.getUTCMonth() // 0..11
+      months[m].revenue += Number(s.total)
+    })
+
+    return months
   }
 
   // Doanh thu theo năm (last `years` years, including years with zero revenue)
@@ -92,18 +96,22 @@ export class AnalyticsService {
     const currentYear = new Date().getFullYear()
     const startYear = currentYear - (years - 1)
 
-    const rows = await this.salesRepo.query(
-      `
-      SELECT y.year::int AS year, COALESCE(SUM(s.total_price), 0) AS revenue
-      FROM generate_series($1::int, $2::int) AS y(year)
-      LEFT JOIN sales s ON EXTRACT(YEAR FROM s.sold_at)::int = y.year
-      GROUP BY y.year
-      ORDER BY y.year
-      `,
-      [startYear, currentYear],
-    )
+    // Fetch sales between startYear-01-01 and currentYear-12-31 and aggregate by year
+    const start = new Date(Date.UTC(startYear, 0, 1, 0, 0, 0, 0))
+    const end = new Date(Date.UTC(currentYear, 11, 31, 23, 59, 59, 999))
 
-    return rows.map((r) => ({ year: Number(r.year), revenue: Number(r.revenue) }))
+    const sales = await this.salesRepo.find({ where: { soldAt: Between(start, end) } })
+
+    // Prepare years map
+    const yearsArr = Array.from({ length: years }, (_, i) => startYear + i)
+    const byYear = new Map(yearsArr.map((y) => [y, 0]))
+
+    sales.forEach((s) => {
+      const y = new Date(s.soldAt).getUTCFullYear()
+      if (byYear.has(y)) byYear.set(y, (byYear.get(y) ?? 0) + Number(s.total))
+    })
+
+    return yearsArr.map((y) => ({ year: y, revenue: byYear.get(y) ?? 0 }))
   }
 
   // Doanh thu theo ngày - last `days` days (including zeros for days without sales)
