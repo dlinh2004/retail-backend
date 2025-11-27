@@ -107,33 +107,62 @@ export class AnalyticsService {
   }
 
   // Doanh thu theo ngày - last `days` days (including zeros for days without sales)
-  async getRevenueByDays(days = 7) {
+  async getRevenueByDays(days = 7, startDate?: string) {
     const n = Number(days) || 7
 
-    // Build start/end range (midnight start) and fetch actual sales in range.
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - (n - 1))
-    start.setHours(0, 0, 0, 0)
-    end.setHours(23, 59, 59, 999)
+    // Build start/end range (UTC midnight) and fetch actual sales in range.
+    const MS_PER_DAY = 24 * 60 * 60 * 1000
 
+    let startUTCms: number
+    if (startDate) {
+      const parts = startDate.split('-').map((p) => Number(p))
+      const y = parts[0]
+      const m = parts[1]
+      const d = parts[2]
+      startUTCms = Date.UTC(y, m - 1, d, 0, 0, 0, 0)
+    } else {
+      const today = new Date()
+      // use today's UTC date
+      const y = today.getUTCFullYear()
+      const m = today.getUTCMonth()
+      const d = today.getUTCDate()
+      startUTCms = Date.UTC(y, m, d, 0, 0, 0, 0) - (n - 1) * MS_PER_DAY
+    }
+
+    const start = new Date(startUTCms)
+    const end = new Date(startUTCms + n * MS_PER_DAY - 1)
+
+    // For debugging: log the computed window
+    console.debug('getRevenueByDays window', start.toISOString(), end.toISOString())
     // Fetch sales in the date range and aggregate in JS to avoid timezone/date casting issues
     const sales = await this.salesRepo.find({ where: { soldAt: Between(start, end) } })
+
+    // Helper to format date as local ISO-like yyyy-mm-dd (no timezone)
+    // format using UTC calendar date (no timezone)
+    const formatLocalDate = (dt: Date) => {
+      const yyyy = dt.getUTCFullYear()
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, '0')
+      const dd = String(dt.getUTCDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
 
     // Create a map day -> revenue
     const sums = new Map()
     for (let i = 0; i < n; i++) {
-      const d = new Date(start)
-      d.setDate(start.getDate() + i)
-      // use yyyy-mm-dd as key (no timezone) for consistent matching
-      const key = d.toISOString().slice(0, 10)
+      const d = new Date(startUTCms + i * MS_PER_DAY)
+      // use local yyyy-mm-dd as key (no timezone) for consistent matching)
+      const key = formatLocalDate(d)
       sums.set(key, 0)
     }
 
     sales.forEach((s) => {
-      const key = new Date(s.soldAt).toISOString().slice(0, 10)
+      const key = formatLocalDate(new Date(s.soldAt))
       sums.set(key, (sums.get(key) || 0) + Number(s.total))
     })
+
+    // For debugging: show computed keys
+    // eslint-disable-next-line no-console
+    console.debug('revenueByDays: start=', start, 'end=', end, 'keys=', Array.from(sums.keys()))
 
     // Convert to array of rows in chronological order
     const rows = Array.from(sums.keys())

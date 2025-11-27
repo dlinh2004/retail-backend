@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts"
-import { DollarSign, ShoppingBag, Package, TrendingUp } from "lucide-react"
+import { DollarSign, ShoppingBag, Package, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react"
 import api from "../services/api"
 
 const Dashboard = () => {
@@ -13,6 +13,8 @@ const Dashboard = () => {
   const [chartData, setChartData] = useState([])
   const [topProducts, setTopProducts] = useState([])
   const [view, setView] = useState('week') // 'week' | 'month' | 'year'
+  // weekOffset 0 = last 7 days ending today; -1 is previous 7d window, +1 next 7d window
+  const [weekOffset, setWeekOffset] = useState(0)
 
   // helper: weekday names and conversion
   const weekdays = [
@@ -64,8 +66,8 @@ const Dashboard = () => {
         // We still set week's chart data initially here (chart view default is week)
         const rows = revenueDaysRes.data || []
         const mapped = rows.map((r) => ({ name: toWeekdayLabel(r.day), revenue: Number(r.revenue) }))
-        const nonZero = mapped.filter((m) => m.revenue > 0)
-        setChartData(nonZero.length ? nonZero : mapped)
+        // we want to show the full 7-day window for the week chart (including zeros)
+        setChartData(mapped)
 
         // Top products: expect [{ name, sales }]
         setTopProducts(topRes.data || [])
@@ -84,17 +86,23 @@ const Dashboard = () => {
     const fetchChart = async () => {
       try {
         if (view === 'week') {
-          // Use actual daily revenue for the last 7 days (instead of forecast) so the
-          // chart matches real sales history and shows only days with activity.
-          const res = await api.get('/analytics/revenue/day?days=7')
+          // compute the start date for the requested 7-day window based on weekOffset
+          const today = new Date()
+          const days = 7
+          // default start is today - (days - 1)
+          const defaultStart = new Date()
+          defaultStart.setDate(today.getDate() - (days - 1))
+          defaultStart.setHours(0, 0, 0, 0)
+          // apply week offset (multiples of 7 days)
+          const start = new Date(defaultStart)
+          start.setDate(defaultStart.getDate() + weekOffset * 7)
+          const startIso = start.toISOString().slice(0, 10)
+
+          const res = await api.get(`/analytics/revenue/day?days=${days}&start=${startIso}`)
           const rows = res.data || []
-          // convert to chart items and filter out zero-revenue days so the chart
-          // reflects only days with sales (e.g., if history contains 3 days)
-          const mapped = rows
-            .map((r) => ({ name: toWeekdayLabel(r.day), revenue: Number(r.revenue) }))
-          // If every day is zero we keep them so the chart still shows a timeline
-          const nonZero = mapped.filter((m) => m.revenue > 0)
-          setChartData(nonZero.length ? nonZero : mapped)
+          // convert to chart items and keep zeros (show full 7-day window)
+          const mapped = rows.map((r) => ({ name: toWeekdayLabel(r.day), revenue: Number(r.revenue) }))
+          setChartData(mapped)
         } else if (view === 'month') {
           const res = await api.get(`/analytics/revenue/month?year=${currentYear}`)
           const rows = res.data || []
@@ -124,7 +132,7 @@ const Dashboard = () => {
     }
 
     fetchChart()
-  }, [view])
+  }, [view, weekOffset])
 
 
   if (loading) {
@@ -193,10 +201,39 @@ const Dashboard = () => {
                 <div className="text-xs text-muted-foreground">{view === 'week' ? 'Tuần' : view === 'month' ? 'Tháng' : 'Năm'}</div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                {view === 'week' && (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setWeekOffset((s) => s - 1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-xs text-muted-foreground">
+                      {/* show current week window */}
+                      {(() => {
+                        const days = 7
+                        const today = new Date()
+                        const defaultStart = new Date()
+                        defaultStart.setDate(today.getDate() - (days - 1))
+                        defaultStart.setHours(0, 0, 0, 0)
+                        const start = new Date(defaultStart)
+                        start.setDate(defaultStart.getDate() + weekOffset * 7)
+                        const end = new Date(start)
+                        end.setDate(start.getDate() + days - 1)
+                        const fmt = new Intl.DateTimeFormat('vi-VN', { day: 'numeric', month: 'short' })
+                        return `${fmt.format(start)} — ${fmt.format(end)}`
+                      })()}
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setWeekOffset((s) => s + 1)}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
                 <Button variant={view === 'week' ? 'default' : 'ghost'} size="sm" onClick={() => setView('week')}>Tuần</Button>
                 <Button variant={view === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setView('month')}>Tháng</Button>
                 <Button variant={view === 'year' ? 'default' : 'ghost'} size="sm" onClick={() => setView('year')}>Năm</Button>
+                </div>
               </div>
             </CardHeader>
           <CardContent className="pl-2">

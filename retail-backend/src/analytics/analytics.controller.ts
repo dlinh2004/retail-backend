@@ -39,9 +39,9 @@ export class AnalyticsController {
   }
 
   @Get('revenue/day')
-  getRevenueByDays(@Query('days') days?: string) {
+  getRevenueByDays(@Query('days') days?: string, @Query('start') start?: string) {
     const n = days ? parseInt(days, 10) : undefined
-    return this.analyticsService.getRevenueByDays(n)
+    return this.analyticsService.getRevenueByDays(n, start)
   }
 
   @Get('revenue/year')
