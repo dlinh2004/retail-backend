@@ -47,8 +47,16 @@ const Dashboard = () => {
   const yAxisMax = useMemo(() => {
     const max = chartData && chartData.length ? Math.max(...chartData.map((c) => Number(c.revenue) || 0)) : 0
     if (max <= 0) return 0
-    const magnitude = Math.pow(10, Math.floor(Math.log10(max)))
-    return Math.ceil(max / magnitude) * magnitude
+
+    // Compute a rounded top value but add a small buffer so the highest data point
+    // doesn't sit exactly at the top of the chart and get visually clipped.
+    // Use a slightly smaller magnitude for finer rounding, then add ~10% buffer.
+    const order = Math.floor(Math.log10(max))
+    const magnitude = Math.pow(10, Math.max(0, order - 1))
+    const topRounded = Math.ceil(max / magnitude) * magnitude
+    const buffer = Math.ceil((topRounded * 0.1) / magnitude) * magnitude
+
+    return topRounded + buffer
   }, [chartData])
 
   useEffect(() => {
@@ -240,7 +248,9 @@ const Dashboard = () => {
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 {view === 'week' ? (
-                  <LineChart data={chartData}>
+                  // give the chart some left padding so long Y-axis labels (eg. "20.000.000 ₫")
+                  // don't get visually clipped by the container
+                  <LineChart data={chartData} margin={{ top: 8, right: 12, left: 56, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} interval={0} tick={{ angle: -20, textAnchor: 'end' }} />
                     <YAxis
@@ -248,6 +258,7 @@ const Dashboard = () => {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
+                      width={100}
                       tickFormatter={(value) => currencyFormatter(value)}
                       domain={[0, yAxisMax]}
                     />
@@ -256,10 +267,10 @@ const Dashboard = () => {
                   </LineChart>
                 ) : (
                   // month / year -> column (vertical bar) chart
-                  <BarChart data={chartData}>
+                  <BarChart data={chartData} margin={{ top: 8, right: 12, left: 56, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} interval={0} tick={{ angle: -20, textAnchor: 'end' }} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => currencyFormatter(v)} domain={[0, yAxisMax]} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => currencyFormatter(v)} domain={[0, yAxisMax]} width={100} />
                     <Tooltip formatter={(value) => currencyFormatter(value)} />
                     <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
