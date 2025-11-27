@@ -24,9 +24,36 @@ const Dashboard = () => {
 
         setSummary(summaryRes.data)
 
-        // Forecast: map to chart structure
+        // Forecast: map to chart structure and convert day -> weekday
         const forecasts = forecastRes.data?.forecasts || []
-        const mapped = forecasts.map((f) => ({ name: `D${f.day}`, revenue: f.predicted_revenue }))
+
+        const weekdays = [
+          'Chủ nhật', // 0
+          'Thứ 2',
+          'Thứ 3',
+          'Thứ 4',
+          'Thứ 5',
+          'Thứ 6',
+          'Thứ 7',
+        ]
+
+        const toWeekdayLabel = (d) => {
+          // If d is a number and looks like 0-6 -> use as Date.getDay
+          if (typeof d === 'number') {
+            if (d >= 0 && d <= 6) return weekdays[d]
+            // If day uses 1..7 where 1 = Monday, map 1->Thứ 2 .. 7->Chủ nhật
+            if (d >= 1 && d <= 7) return weekdays[d % 7]
+          }
+
+          // If it's a date string or ISO date, try to parse
+          const parsed = new Date(d)
+          if (!Number.isNaN(parsed.getTime())) return weekdays[parsed.getDay()]
+
+          // fallback to original value
+          return String(d)
+        }
+
+        const mapped = forecasts.map((f) => ({ name: toWeekdayLabel(f.day), revenue: f.predicted_revenue }))
         setChartData(mapped)
 
         // Top products: expect [{ name, sales }]
