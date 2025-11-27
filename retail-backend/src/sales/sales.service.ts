@@ -22,23 +22,40 @@ export class SalesService {
   ) {}
 
   async create(productId: number, staffId: number, quantity: number) {
-    const product = await this.productRepository.findOneBy({ id: productId });
-    const staff = await this.userRepository.findOneBy({ id: staffId });
+    // perform sale creation and stock decrement in a single DB transaction
+    const savedSale = await this.salesRepository.manager.transaction(async (manager) => {
+      // lock the product row to avoid concurrent race conditions
+      const product = await manager.findOne(Product, {
+        where: { id: productId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!product || !staff) {
-       throw new HttpException('Product or staff not found', HttpStatus.NOT_FOUND);
-    }
+      const staff = await manager.findOne(User, { where: { id: staffId } });
 
-    const sale = this.salesRepository.create({
-      product,
-      staff,
-      quantity,
-      total: quantity * product.price,
+      if (!product || !staff) {
+        throw new HttpException('Product or staff not found', HttpStatus.NOT_FOUND);
+      }
+
+      if (product.stock < quantity) {
+        throw new HttpException('Insufficient stock', HttpStatus.BAD_REQUEST);
+      }
+
+      // decrement stock and persist
+      product.stock = product.stock - quantity;
+      await manager.save(Product, product);
+
+      // create and save sale record
+      const sale = manager.create(Sale, {
+        product,
+        staff,
+        quantity,
+        total: quantity * product.price,
+      });
+
+      return manager.save(Sale, sale);
     });
 
-    const savedSale = await this.salesRepository.save(sale);
-
-    // gửi message lên SQS
+    // gửi message lên SQS (outside the DB transaction)
     await this.sqsProducer.sendSaleEvent({
       event: 'sale.created',
       data: savedSale,
