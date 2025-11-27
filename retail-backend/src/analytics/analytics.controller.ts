@@ -38,6 +38,12 @@ export class AnalyticsController {
     return this.analyticsService.getRevenueByMonth(y)
   }
 
+  @Get('revenue/day')
+  getRevenueByDays(@Query('days') days?: string) {
+    const n = days ? parseInt(days, 10) : undefined
+    return this.analyticsService.getRevenueByDays(n)
+  }
+
   @Get('revenue/year')
   getRevenueByYear(@Query('years') years?: string) {
     const n = years ? parseInt(years, 10) : undefined

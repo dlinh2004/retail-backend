@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts"
@@ -40,22 +40,32 @@ const Dashboard = () => {
 
   const currentYear = new Date().getFullYear()
 
+  // compute a nice rounded Y-axis top from chartData so the axis scale matches
+  // the visible data instead of defaulting to some unrelated rounding
+  const yAxisMax = useMemo(() => {
+    const max = chartData && chartData.length ? Math.max(...chartData.map((c) => Number(c.revenue) || 0)) : 0
+    if (max <= 0) return 0
+    const magnitude = Math.pow(10, Math.floor(Math.log10(max)))
+    return Math.ceil(max / magnitude) * magnitude
+  }, [chartData])
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch dashboard data (summary, forecast, top-products)
-        const [summaryRes, forecastRes, topRes] = await Promise.all([
+        // Fetch dashboard data (summary, recent daily revenue for week, top-products)
+        const [summaryRes, revenueDaysRes, topRes] = await Promise.all([
           api.get("/analytics/summary"),
-          api.get("/analytics/forecast"),
+          api.get('/analytics/revenue/day?days=7'),
           api.get("/analytics/top-products"),
         ])
 
         setSummary(summaryRes.data)
 
         // We still set week's chart data initially here (chart view default is week)
-        const forecasts = forecastRes.data?.forecasts || []
-        const mapped = forecasts.map((f) => ({ name: toWeekdayLabel(f.day), revenue: f.predicted_revenue }))
-        setChartData(mapped)
+        const rows = revenueDaysRes.data || []
+        const mapped = rows.map((r) => ({ name: toWeekdayLabel(r.day), revenue: Number(r.revenue) }))
+        const nonZero = mapped.filter((m) => m.revenue > 0)
+        setChartData(nonZero.length ? nonZero : mapped)
 
         // Top products: expect [{ name, sales }]
         setTopProducts(topRes.data || [])
@@ -74,9 +84,17 @@ const Dashboard = () => {
     const fetchChart = async () => {
       try {
         if (view === 'week') {
-          const forecastRes = await api.get('/analytics/forecast')
-          const forecasts = forecastRes.data?.forecasts || []
-          setChartData(forecasts.map((f) => ({ name: toWeekdayLabel(f.day), revenue: f.predicted_revenue })))
+          // Use actual daily revenue for the last 7 days (instead of forecast) so the
+          // chart matches real sales history and shows only days with activity.
+          const res = await api.get('/analytics/revenue/day?days=7')
+          const rows = res.data || []
+          // convert to chart items and filter out zero-revenue days so the chart
+          // reflects only days with sales (e.g., if history contains 3 days)
+          const mapped = rows
+            .map((r) => ({ name: toWeekdayLabel(r.day), revenue: Number(r.revenue) }))
+          // If every day is zero we keep them so the chart still shows a timeline
+          const nonZero = mapped.filter((m) => m.revenue > 0)
+          setChartData(nonZero.length ? nonZero : mapped)
         } else if (view === 'month') {
           const res = await api.get(`/analytics/revenue/month?year=${currentYear}`)
           const rows = res.data || []
@@ -194,6 +212,7 @@ const Dashboard = () => {
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(value) => currencyFormatter(value)}
+                      domain={[0, yAxisMax]}
                     />
                     <Tooltip formatter={(value) => currencyFormatter(value)} />
                     <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
@@ -203,7 +222,7 @@ const Dashboard = () => {
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} interval={0} tick={{ angle: -20, textAnchor: 'end' }} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => currencyFormatter(v)} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => currencyFormatter(v)} domain={[0, yAxisMax]} />
                     <Tooltip formatter={(value) => currencyFormatter(value)} />
                     <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>

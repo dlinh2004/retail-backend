@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Product } from '../products/product.entity';
 import { Sale } from '../sales/sale.entity';
@@ -104,6 +104,43 @@ export class AnalyticsService {
     )
 
     return rows.map((r) => ({ year: Number(r.year), revenue: Number(r.revenue) }))
+  }
+
+  // Doanh thu theo ngày - last `days` days (including zeros for days without sales)
+  async getRevenueByDays(days = 7) {
+    const n = Number(days) || 7
+
+    // Build start/end range (midnight start) and fetch actual sales in range.
+    const end = new Date()
+    const start = new Date()
+    start.setDate(start.getDate() - (n - 1))
+    start.setHours(0, 0, 0, 0)
+    end.setHours(23, 59, 59, 999)
+
+    // Fetch sales in the date range and aggregate in JS to avoid timezone/date casting issues
+    const sales = await this.salesRepo.find({ where: { soldAt: Between(start, end) } })
+
+    // Create a map day -> revenue
+    const sums = new Map()
+    for (let i = 0; i < n; i++) {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      // use yyyy-mm-dd as key (no timezone) for consistent matching
+      const key = d.toISOString().slice(0, 10)
+      sums.set(key, 0)
+    }
+
+    sales.forEach((s) => {
+      const key = new Date(s.soldAt).toISOString().slice(0, 10)
+      sums.set(key, (sums.get(key) || 0) + Number(s.total))
+    })
+
+    // Convert to array of rows in chronological order
+    const rows = Array.from(sums.keys())
+      .sort()
+      .map((k) => ({ day: k, revenue: sums.get(k) || 0 }))
+
+    return rows
   }
 
   // New: combined summary used by frontend dashboard
