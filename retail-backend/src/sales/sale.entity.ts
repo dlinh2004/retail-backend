@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Product } from '../products/product.entity';
 import { User } from '../users/user.entity';
 
@@ -21,5 +27,5 @@ export class Sale {
   @Column('float', { name: 'total_price' })
   total: number;
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-soldAt: Date;
+  soldAt: Date;
 }

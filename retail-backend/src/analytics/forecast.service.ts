@@ -20,8 +20,8 @@ export class ForecastService {
 
     if (rows.length < 2) return { message: 'Không đủ dữ liệu để dự đoán' };
 
-    const X = rows.map((_, idx) => idx);
-    const y = rows.map(r => Number(r.revenue));
+    const X: number[] = rows.map((_, idx) => idx);
+    const y: number[] = rows.map((r) => Number(r.revenue));
 
     const n = X.length;
     const sumX = X.reduce((a, b) => a + b, 0);

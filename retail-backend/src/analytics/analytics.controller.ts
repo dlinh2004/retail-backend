@@ -34,19 +34,22 @@ export class AnalyticsController {
 
   @Get('revenue/month')
   getRevenueByMonth(@Query('year') year?: string) {
-    const y = year ? parseInt(year, 10) : undefined
-    return this.analyticsService.getRevenueByMonth(y)
+    const y = year ? parseInt(year, 10) : undefined;
+    return this.analyticsService.getRevenueByMonth(y);
   }
 
   @Get('revenue/day')
-  getRevenueByDays(@Query('days') days?: string, @Query('start') start?: string) {
-    const n = days ? parseInt(days, 10) : undefined
-    return this.analyticsService.getRevenueByDays(n, start)
+  getRevenueByDays(
+    @Query('days') days?: string,
+    @Query('start') start?: string,
+  ) {
+    const n = days ? parseInt(days, 10) : undefined;
+    return this.analyticsService.getRevenueByDays(n, start);
   }
 
   @Get('revenue/year')
   getRevenueByYear(@Query('years') years?: string) {
-    const n = years ? parseInt(years, 10) : undefined
-    return this.analyticsService.getRevenueByYear(n)
+    const n = years ? parseInt(years, 10) : undefined;
+    return this.analyticsService.getRevenueByYear(n);
   }
 }

@@ -6,8 +6,14 @@ export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
   @Post()
-  create(@Body() body: { productId: number; staffId: number; quantity: number }) {
-    return this.salesService.create(body.productId, body.staffId, body.quantity);
+  create(
+    @Body() body: { productId: number; staffId: number; quantity: number },
+  ) {
+    return this.salesService.create(
+      body.productId,
+      body.staffId,
+      body.quantity,
+    );
   }
 
   @Get()

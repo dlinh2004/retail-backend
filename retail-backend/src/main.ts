@@ -1,8 +1,8 @@
-import { NestFactory } from "@nestjs/core"
-import { AppModule } from "./app.module"
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule);
 
   // Allow CORS for development: accept requests from local dev servers
   app.enableCors({
@@ -10,8 +10,8 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  })
+  });
 
-  await app.listen(process.env.PORT ?? 3000)
+  await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap()
+bootstrap();

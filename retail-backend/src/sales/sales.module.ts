@@ -7,7 +7,6 @@ import { User } from '../users/user.entity';
 import { Product } from '../products/product.entity';
 import { SqsProducer } from './sqs.producer';
 
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([Sale, User, Product]), // Thêm Product vào đây

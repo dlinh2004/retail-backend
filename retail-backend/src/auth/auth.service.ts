@@ -8,7 +8,7 @@ import * as bcrypt from 'bcryptjs';
 export class AuthService {
   constructor(
     private readonly usersService: UsersService, // bỏ "type" và thêm readonly
-    private readonly jwtService: JwtService,     // bỏ "type"
+    private readonly jwtService: JwtService, // bỏ "type"
   ) {}
 
   async validateUser(username: string, password: string) {
