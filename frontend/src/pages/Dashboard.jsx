@@ -32,9 +32,37 @@ const Dashboard = () => {
       if (d >= 0 && d <= 6) return weekdays[d]
       if (d >= 1 && d <= 7) return weekdays[d % 7]
     }
-    const parsed = new Date(d)
-    if (!Number.isNaN(parsed.getTime())) return weekdays[parsed.getDay()]
+
+    // If input is a string in format yyyy-mm-dd (no timezone), parse using UTC
+    try {
+      const s = String(d)
+      const isoDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s)
+      if (isoDateOnly) {
+        const parts = s.split('-').map((p) => Number(p))
+        const y = parts[0]
+        const m = parts[1]
+        const day = parts[2]
+        const utc = new Date(Date.UTC(y, m - 1, day))
+        return weekdays[utc.getUTCDay()]
+      }
+
+      const parsed = new Date(s)
+      if (!Number.isNaN(parsed.getTime())) {
+        // Use UTC weekday to match backend's UTC-based date keys and avoid timezone shifts
+        return weekdays[parsed.getUTCDay()]
+      }
+    } catch (e) {
+      // fallthrough
+    }
+
     return String(d)
+  }
+
+  const formatLocalIsoDate = (date) => {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   const currencyFormatter = (value) =>
@@ -104,7 +132,8 @@ const Dashboard = () => {
           // apply week offset (multiples of 7 days)
           const start = new Date(defaultStart)
           start.setDate(defaultStart.getDate() + weekOffset * 7)
-          const startIso = start.toISOString().slice(0, 10)
+          // Use local date components to produce yyyy-mm-dd (avoid timezone shifts)
+          const startIso = formatLocalIsoDate(start)
 
           const res = await api.get(`/analytics/revenue/day?days=${days}&start=${startIso}`)
           const rows = res.data || []
