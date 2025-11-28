@@ -11,6 +11,8 @@ import { TrendingUp, Calendar } from "lucide-react"
 const Analytics = () => {
   const [forecastData, setForecastData] = useState([])
   const [loading, setLoading] = useState(false)
+  const [historicalData, setHistoricalData] = useState([])
+  const [historicalLoading, setHistoricalLoading] = useState(false)
 
   const fetchForecast = async () => {
     setLoading(true)
@@ -26,20 +28,47 @@ const Analytics = () => {
     }
   }
 
+  const formatDateToShort = (isoDate) => {
+    // expected input: yyyy-mm-dd or ISO string, output: dd/mm
+    try {
+      const d = new Date(isoDate)
+      if (isNaN(d.getTime())) {
+        // fallback for already-short format
+        const parts = String(isoDate).split('-')
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}`
+        return String(isoDate)
+      }
+      const dd = String(d.getUTCDate()).padStart(2, '0')
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+      return `${dd}/${mm}`
+    } catch (e) {
+      return String(isoDate)
+    }
+  }
+
+  const fetchHistorical = async (days = 7) => {
+    setHistoricalLoading(true)
+    try {
+      // backend provides chronological rows: { day: 'yyyy-mm-dd', revenue: number }
+      const resp = await api.get(`/analytics/revenue/day?days=${days}`)
+      const rows = resp.data
+      if (Array.isArray(rows)) {
+        const mapped = rows.map((r) => ({ date: formatDateToShort(r.day), revenue: Number(r.revenue) }))
+        setHistoricalData(mapped)
+      }
+    } catch (err) {
+      console.error('Error fetching historical revenue:', err)
+    } finally {
+      setHistoricalLoading(false)
+    }
+  }
+
   useEffect(() => {
+    // fetch both historical & forecast when component mounts
+    fetchHistorical(7)
     fetchForecast()
   }, [])
-
-  // Mock historical data
-  const historicalData = [
-    { date: "01/05", revenue: 1200000 },
-    { date: "02/05", revenue: 1500000 },
-    { date: "03/05", revenue: 980000 },
-    { date: "04/05", revenue: 1890000 },
-    { date: "05/05", revenue: 2100000 },
-    { date: "06/05", revenue: 1750000 },
-    { date: "07/05", revenue: 2300000 },
-  ]
+  // historicalData is fetched from backend; fallback to empty array until loaded
 
   return (
     <div className="space-y-6">
@@ -58,33 +87,43 @@ const Analytics = () => {
               <CardDescription>Dữ liệu 7 ngày gần nhất</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={historicalData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="date" />
-                    <YAxis tickFormatter={(value) => `${value / 1000}k`} />
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <Tooltip
-                      formatter={(value) =>
-                        new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value)
-                      }
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="hsl(var(--primary))"
-                      fillOpacity={1}
-                      fill="url(#colorRevenue)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              {historicalLoading ? (
+                <div className="h-[400px] flex items-center justify-center">
+                  <p className="text-muted-foreground">Đang tải dữ liệu lịch sử...</p>
+                </div>
+              ) : historicalData.length > 0 ? (
+                <div className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={historicalData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" />
+                      <YAxis tickFormatter={(value) => `${value / 1000}k`} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <Tooltip
+                        formatter={(value) =>
+                          new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value)
+                        }
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="hsl(var(--primary))"
+                        fillOpacity={1}
+                        fill="url(#colorRevenue)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[400px] flex items-center justify-center border rounded-md bg-muted/20">
+                  <p className="text-muted-foreground">Không có dữ liệu lịch sử</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
