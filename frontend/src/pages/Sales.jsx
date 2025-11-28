@@ -28,6 +28,38 @@ const Sales = () => {
   const [toDate, setToDate] = useState("")
   const [filteredSales, setFilteredSales] = useState(null)
 
+  const handleExportCsv = () => {
+    const data = (filteredSales ?? sales) || []
+    if (data.length === 0) {
+      toast({ title: 'Lỗi', description: 'Không có dữ liệu để xuất', variant: 'destructive' })
+      return
+    }
+
+    const rows = [["ID", "Sản phẩm", "Số lượng", "Tổng tiền", "Ngày bán"]]
+    data.forEach((s) => {
+      const prod = s.product?.name || `Product #${s.productId}`
+      const total = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(s.total || 0)
+      const date = s.soldAt ? format(new Date(s.soldAt), "dd/MM/yyyy HH:mm") : ""
+      rows.push([`#${s.id}`, prod, String(s.quantity), total, date])
+    })
+
+    const csv = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n')
+
+    // Add BOM so Excel opens UTF-8 correctly
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sales-history-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
   const fetchData = async () => {
     try {
       const [salesRes, productsRes] = await Promise.all([api.get("/sales"), api.get("/products")])
@@ -177,6 +209,9 @@ const Sales = () => {
                     }}
                   >
                     Reset
+                  </Button>
+                  <Button onClick={handleExportCsv} className="ml-2">
+                    Xuất Excel
                   </Button>
                 </div>
               </div>
