@@ -18,6 +18,7 @@ export class SalesController {
 
   @Get()
   findAll() {
+    
     return this.salesService.findAll();
   }
 
