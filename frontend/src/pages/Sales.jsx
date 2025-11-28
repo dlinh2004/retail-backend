@@ -24,6 +24,9 @@ const Sales = () => {
     productId: "",
     quantity: 1,
   })
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
+  const [filteredSales, setFilteredSales] = useState(null)
 
   const fetchData = async () => {
     try {
@@ -128,10 +131,58 @@ const Sales = () => {
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Lịch sử bán hàng</CardTitle>
-          </CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <CardTitle>Lịch sử bán hàng</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-40"
+                  />
+                  <Input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-40"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // compute start/end and filter
+                      if (!fromDate && !toDate) {
+                        setFilteredSales(null)
+                        return
+                      }
+                      const start = fromDate ? new Date(fromDate + "T00:00:00") : new Date(-8640000000000000)
+                      const end = toDate
+                        ? new Date(toDate + "T23:59:59")
+                        : new Date((fromDate || toDate) + "T23:59:59")
+                      const filtered = sales.filter((s) => {
+                        if (!s.soldAt) return false
+                        const t = new Date(s.soldAt)
+                        return t >= start && t <= end
+                      })
+                      setFilteredSales(filtered)
+                    }}
+                  >
+                    Lọc
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setFromDate("")
+                      setToDate("")
+                      setFilteredSales(null)
+                    }}
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border max-h-[70vh] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -151,12 +202,12 @@ const Sales = () => {
                     </TableRow>
                   ) : sales.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                        Chưa có đơn hàng nào
-                      </TableCell>
+                        <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                          Chưa có đơn hàng nào
+                        </TableCell>
                     </TableRow>
                   ) : (
-                    sales.map((sale) => (
+                      (filteredSales ?? sales).map((sale) => (
                       <TableRow key={sale.id}>
                         <TableCell>#{sale.id}</TableCell>
                         <TableCell className="font-medium">
