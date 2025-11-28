@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { User } from './users/user.entity';
 import { Product } from './products/product.entity';
 import { Sale } from './sales/sale.entity';
@@ -8,7 +9,9 @@ import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
 import { SalesModule } from './sales/sales.module';
 import { AnalyticsModule } from './analytics/analytics.module';
-import { AuthModule } from './auth/auth.module'; // <-- thêm AuthModule
+import { AuthModule } from './auth/auth.module';
+import { ObservabilityModule } from './observability/observability.module';
+import { LoggingInterceptor } from './observability/logging.interceptor';
 
 @Module({
   imports: [
@@ -25,11 +28,18 @@ import { AuthModule } from './auth/auth.module'; // <-- thêm AuthModule
       synchronize: true,
     }),
 
+    ObservabilityModule, // Add observability module
     UsersModule,
     ProductsModule,
     SalesModule,
     AnalyticsModule,
-    AuthModule, // <-- thêm vào đây
+    AuthModule,
+  ],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
   ],
 })
 export class AppModule {}
