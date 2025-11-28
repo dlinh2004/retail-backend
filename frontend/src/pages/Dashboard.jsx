@@ -68,6 +68,14 @@ const Dashboard = () => {
   const currencyFormatter = (value) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 
+  const formatPct = (v) => {
+    if (v === null) return 'N/A'
+    if (v === undefined || Number.isNaN(Number(v))) return '-'
+    const num = Number(v)
+    const sign = num > 0 ? '+' : num < 0 ? '' : ''
+    return `${sign}${Math.round(num * 10) / 10}%`
+  }
+
   const currentYear = new Date().getFullYear()
 
   // compute a nice rounded Y-axis top from chartData so the axis scale matches
@@ -202,7 +210,7 @@ const Dashboard = () => {
                 ? new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(summary.totalRevenue)
                 : "0 ₫"}
             </div>
-            <p className="text-xs text-muted-foreground">+20.1% so với tháng trước</p>
+            <p className="text-xs text-muted-foreground">{summary ? `${formatPct(summary.revenueChangePct)} so với tháng trước` : ''}</p>
           </CardContent>
         </Card>
 
@@ -213,7 +221,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary?.totalOrders || 0}</div>
-            <p className="text-xs text-muted-foreground">+15% so với tháng trước</p>
+            <p className="text-xs text-muted-foreground">{summary ? `${formatPct(summary.ordersChangePct)} so với tháng trước` : ''}</p>
           </CardContent>
         </Card>
 
@@ -224,7 +232,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary?.totalProductsSold || 0}</div>
-            <p className="text-xs text-muted-foreground">+12% so với tháng trước</p>
+            <p className="text-xs text-muted-foreground">{summary ? `${formatPct(summary.productsChangePct)} so với tháng trước` : ''}</p>
           </CardContent>
         </Card>
 
@@ -234,8 +242,8 @@ const Dashboard = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+24.5%</div>
-            <p className="text-xs text-muted-foreground">So với cùng kỳ năm trước</p>
+            <div className="text-2xl font-bold">{summary ? formatPct(summary.revenueYoYPct) : '+'}</div>
+            <p className="text-xs text-muted-foreground">{summary ? `So với cùng kỳ năm trước` : ''}</p>
           </CardContent>
         </Card>
       </div>

@@ -194,11 +194,103 @@ export class AnalyticsService {
     const totalProductsSold = Number(row?.totalProductsSold ?? 0)
     const latestSaleId = Number(row?.latestSaleId ?? 0)
 
-    // Per request: display the final/latest sale ID as the 'totalOrders' value
+    // compute month-over-month and year-over-year aggregates for percent change
+    const now = new Date()
+    const y = now.getUTCFullYear()
+    const m = now.getUTCMonth() // 0..11
+
+    // current month UTC range
+    const startCurrentMs = Date.UTC(y, m, 1, 0, 0, 0, 0)
+    const endCurrentMs = Date.UTC(y, m + 1, 0, 23, 59, 59, 999)
+
+    // previous month range
+    const prevMonth = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0))
+    prevMonth.setUTCMonth(prevMonth.getUTCMonth() - 1)
+    const py = prevMonth.getUTCFullYear()
+    const pm = prevMonth.getUTCMonth()
+    const startPrevMs = Date.UTC(py, pm, 1, 0, 0, 0, 0)
+    const endPrevMs = Date.UTC(py, pm + 1, 0, 23, 59, 59, 999)
+
+    const startCurrent = new Date(startCurrentMs)
+    const endCurrent = new Date(endCurrentMs)
+    const startPrev = new Date(startPrevMs)
+    const endPrev = new Date(endPrevMs)
+
+    // current month aggregates
+    const current = await this.salesRepo
+      .createQueryBuilder('sale')
+      .select('COALESCE(SUM(sale.total), 0)', 'revenue')
+      .addSelect('COALESCE(SUM(sale.quantity), 0)', 'products')
+      .addSelect('COUNT(*)', 'orders')
+      .where('sale.soldAt BETWEEN :start AND :end', { start: startCurrent, end: endCurrent })
+      .getRawOne();
+
+    // previous month aggregates
+    const prev = await this.salesRepo
+      .createQueryBuilder('sale')
+      .select('COALESCE(SUM(sale.total), 0)', 'revenue')
+      .addSelect('COALESCE(SUM(sale.quantity), 0)', 'products')
+      .addSelect('COUNT(*)', 'orders')
+      .where('sale.soldAt BETWEEN :start AND :end', { start: startPrev, end: endPrev })
+      .getRawOne();
+
+    // year over year: this year vs last year
+    const startYearThis = new Date(Date.UTC(y, 0, 1, 0, 0, 0, 0))
+    const endYearThis = new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999))
+    const startYearPrev = new Date(Date.UTC(y - 1, 0, 1, 0, 0, 0, 0))
+    const endYearPrev = new Date(Date.UTC(y - 1, 11, 31, 23, 59, 59, 999))
+
+    const yearThis = await this.salesRepo
+      .createQueryBuilder('sale')
+      .select('COALESCE(SUM(sale.total), 0)', 'revenue')
+      .where('sale.soldAt BETWEEN :start AND :end', { start: startYearThis, end: endYearThis })
+      .getRawOne();
+
+    const yearPrev = await this.salesRepo
+      .createQueryBuilder('sale')
+      .select('COALESCE(SUM(sale.total), 0)', 'revenue')
+      .where('sale.soldAt BETWEEN :start AND :end', { start: startYearPrev, end: endYearPrev })
+      .getRawOne();
+
+    const currRevenue = Number(current?.revenue ?? 0)
+    const prevRevenue = Number(prev?.revenue ?? 0)
+    const currOrders = Number(current?.orders ?? 0)
+    const prevOrders = Number(prev?.orders ?? 0)
+    const currProducts = Number(current?.products ?? 0)
+    const prevProducts = Number(prev?.products ?? 0)
+    const thisYearRevenue = Number(yearThis?.revenue ?? 0)
+    const lastYearRevenue = Number(yearPrev?.revenue ?? 0)
+
+    const pctChange = (curr: number, prevVal: number) => {
+      // If previous period has zero value, return 0 when both zero, otherwise return null
+      // so frontend can display "N/A" (avoid misleading 100% when prev==0)
+      if (prevVal === 0) return curr === 0 ? 0 : null
+      return ((curr - prevVal) / Math.abs(prevVal)) * 100
+    }
+
+    const revenueChangePct = pctChange(currRevenue, prevRevenue)
+    const ordersChangePct = pctChange(currOrders, prevOrders)
+    const productsChangePct = pctChange(currProducts, prevProducts)
+    const revenueYoYPct = pctChange(thisYearRevenue, lastYearRevenue)
+
     return {
       totalRevenue,
       totalOrders: latestSaleId,
       totalProductsSold,
+      // monthly comparisons
+      revenueThisMonth: currRevenue,
+      revenuePrevMonth: prevRevenue,
+      revenueChangePct,
+      ordersThisMonth: currOrders,
+      ordersPrevMonth: prevOrders,
+      ordersChangePct,
+      productsThisMonth: currProducts,
+      productsPrevMonth: prevProducts,
+      productsChangePct,
+      // year over year
+      revenueThisYear: thisYearRevenue,
+      revenueLastYear: lastYearRevenue,
+      revenueYoYPct,
     }
   }
 }
