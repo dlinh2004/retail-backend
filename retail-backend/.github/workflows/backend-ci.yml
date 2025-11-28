@@ -1,0 +1,45 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'scripts/**'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'scripts/**'
+
+jobs:
+  build:
+    name: Build & Test (retail-backend)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Run lint
+        run: npm run lint --if-present
+        working-directory: .
+
+      - name: Build
+        run: npm run build --if-present
+        working-directory: .
+
+      - name: Run tests
+        run: npm test --if-present
+        working-directory: .
