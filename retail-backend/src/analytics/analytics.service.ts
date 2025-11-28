@@ -182,16 +182,23 @@ export class AnalyticsService {
 
   // New: combined summary used by frontend dashboard
   async getSummary() {
-    const sales = await this.salesRepo.find();
+    // Single-query aggregation: total revenue, total products sold, and latest sale id
+    const row = await this.salesRepo
+      .createQueryBuilder('sale')
+      .select('COALESCE(SUM(sale.total), 0)', 'totalRevenue')
+      .addSelect('COALESCE(SUM(sale.quantity), 0)', 'totalProductsSold')
+      .addSelect('COALESCE(MAX(sale.id), 0)', 'latestSaleId')
+      .getRawOne();
 
-    const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0);
-    const totalOrders = sales.length;
-    const totalProductsSold = sales.reduce((sum, sale) => sum + Number(sale.quantity), 0);
+    const totalRevenue = Number(row?.totalRevenue ?? 0)
+    const totalProductsSold = Number(row?.totalProductsSold ?? 0)
+    const latestSaleId = Number(row?.latestSaleId ?? 0)
 
+    // Per request: display the final/latest sale ID as the 'totalOrders' value
     return {
       totalRevenue,
-      totalOrders,
+      totalOrders: latestSaleId,
       totalProductsSold,
-    };
+    }
   }
 }

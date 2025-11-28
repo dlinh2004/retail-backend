@@ -45,7 +45,7 @@ const Sales = () => {
     e.preventDefault()
     try {
       const token = localStorage.getItem('token')
-      await api.post(
+      const resp = await api.post(
         "/sales",
         {
           productId: Number(newOrder.productId),
@@ -57,6 +57,17 @@ const Sales = () => {
 
       toast({ title: "Thành công", description: "Đã tạo đơn hàng mới" })
       fetchData() // Reload data
+
+      // Notify other parts of the app (eg. Dashboard) that a new sale was created
+      try {
+        if (resp && resp.data) {
+          window.dispatchEvent(new CustomEvent('sale:created', { detail: resp.data }))
+        } else {
+          window.dispatchEvent(new CustomEvent('sale:created'))
+        }
+      } catch (e) {
+        // ignore event dispatch errors
+      }
       setNewOrder({ productId: "", quantity: 1 })
     } catch (error) {
       toast({

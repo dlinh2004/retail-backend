@@ -87,34 +87,44 @@ const Dashboard = () => {
     return topRounded + buffer
   }, [chartData])
 
+  // fetchData is exposed so we can call it from event listeners (eg. when a sale is created)
+  const fetchData = async () => {
+    try {
+      // Fetch dashboard data (summary, recent daily revenue for week, top-products)
+      const [summaryRes, revenueDaysRes, topRes] = await Promise.all([
+        api.get("/analytics/summary"),
+        api.get('/analytics/revenue/day?days=7'),
+        api.get("/analytics/top-products"),
+      ])
+
+      setSummary(summaryRes.data)
+
+      // We still set week's chart data initially here (chart view default is week)
+      const rows = revenueDaysRes.data || []
+      const mapped = rows.map((r) => ({ name: toWeekdayLabel(r.day), revenue: Number(r.revenue) }))
+      // we want to show the full 7-day window for the week chart (including zeros)
+      setChartData(mapped)
+
+      // Top products: expect [{ name, sales }]
+      setTopProducts(topRes.data || [])
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch dashboard data (summary, recent daily revenue for week, top-products)
-        const [summaryRes, revenueDaysRes, topRes] = await Promise.all([
-          api.get("/analytics/summary"),
-          api.get('/analytics/revenue/day?days=7'),
-          api.get("/analytics/top-products"),
-        ])
+    fetchData()
 
-        setSummary(summaryRes.data)
-
-        // We still set week's chart data initially here (chart view default is week)
-        const rows = revenueDaysRes.data || []
-        const mapped = rows.map((r) => ({ name: toWeekdayLabel(r.day), revenue: Number(r.revenue) }))
-        // we want to show the full 7-day window for the week chart (including zeros)
-        setChartData(mapped)
-
-        // Top products: expect [{ name, sales }]
-        setTopProducts(topRes.data || [])
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error)
-      } finally {
-        setLoading(false)
-      }
+    // Listen for new sales created elsewhere in the app and refresh dashboard
+    const onSaleCreated = () => {
+      // re-fetch summary and chart data
+      fetchData()
     }
 
-    fetchData()
+    window.addEventListener('sale:created', onSaleCreated)
+    return () => window.removeEventListener('sale:created', onSaleCreated)
   }, [])
 
   // Fetch chart data when view changes
