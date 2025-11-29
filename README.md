@@ -105,33 +105,44 @@ cd retail-backend
 npm install
 ```
 
-Tạo file `.env` trong `retail-backend/`:
+Tạo file `.env` trong `retail-backend/` (xem mẫu tại `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Sau đó, chỉnh sửa `.env` với thông tin thực tế của bạn:
 
 ```env
-# Database
+# Database (thay bằng credentials PostgreSQL của bạn)
 DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=postgres
-DB_PASSWORD=your_password
+DB_PASSWORD=your_postgres_password_here
 DB_NAME=retaildb
 
-# AWS
+# AWS (thay bằng AWS credentials của bạn)
 AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/123456/your-queue-name
+AWS_ACCESS_KEY_ID=your_aws_access_key_here
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key_here
+SQS_QUEUE_URL=https://sqs.region.amazonaws.com/account-id/queue-name
 
-# JWT
-JWT_SECRET=your_jwt_secret_key_here
+# JWT (tạo secret mạnh: openssl rand -hex 32)
+JWT_SECRET=generate_strong_random_key_here
 JWT_EXPIRATION=24h
 
-# CloudWatch
+# CloudWatch (tùy chỉnh tên group và namespace)
 CW_LOG_GROUP=/aws/retail-backend
 CW_NAMESPACE=RetailAnalytics
 
 # App
 PORT=3000
 ```
+
+⚠️ **QUAN TRỌNG**: 
+- KHÔNG push file `.env` lên Git (chỉ commit `.env.example`)
+- Kiểm tra `.gitignore` có `.env` chưa
+- Giữ bí mật tất cả credentials (password, keys, tokens)
 
 Chạy backend:
 
