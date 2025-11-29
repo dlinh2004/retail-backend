@@ -317,9 +317,9 @@ Xem metrics tại: AWS Console → CloudWatch → Metrics → Custom Namespaces
 
 ## 👥 Contributors
 
-- Sinh viên: [Tên của bạn]
-- Mã số: [Mã số SV]
-- Lớp: [Tên lớp]
+- Sinh viên: [Phạm Duy Linh và Cao Quốc Trực]
+- Nhóm: [16]
+
 
 ## 📄 License
 
