@@ -327,4 +327,4 @@ Xem metrics tại: AWS Console → CloudWatch → Metrics → Custom Namespaces
 
 ---
 
-**Phát triển bởi**: [Tên trường/khoa] - Năm 2025
+**Phát triển bởi**: [Linh,Trực] - Năm 2025
